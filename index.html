@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kolase Foto | By. Aditya Hermansyah</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+      /* BACKGROUND GRADIENT ANIMASI */
+      body {
+        background: linear-gradient(-45deg, #6b73ff, #000dff, #00c3ff, #00ff94);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+      }
+
+      @keyframes gradientBG {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+
+      /* PARTIKEL HALUS */
+      #particles {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .particle {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        animation: float 10s linear infinite;
+      }
+
+      @keyframes float {
+        0% {
+          transform: translateY(0) translateX(0);
+        }
+        50% {
+          transform: translateY(-300px) translateX(50px);
+        }
+        100% {
+          transform: translateY(0) translateX(0);
+        }
+      }
+
+      /* RESPONSIVE GRID */
+      #collage-container {
+        display: grid;
+        gap: 12px;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        width: 100%;
+      }
+
+      /* TOAST */
+      #toast {
+        transition: all 0.3s ease;
+      }
+
+      /* RESPONSIVE */
+      @media (max-width: 768px) {
+        #collage-container {
+          grid-auto-flow: row;
+          grid-auto-rows: 1fr;
+        }
+      }
+    </style>
+  </head>
+
+  <body
+    class="flex items-center justify-center min-h-screen font-sans relative"
+  >
+    <!-- PARTIKEL -->
+    <div id="particles"></div>
+
+    <!-- TOAST -->
+    <div
+      id="toast"
+      class="fixed top-4 right-4 z-50 hidden px-4 py-3 rounded-lg shadow-xl opacity-0 -translate-y-3 flex items-center gap-2"
+    >
+      <span id="toastIcon">✅</span>
+      <span id="toastText">Notifikasi</span>
+    </div>
+
+    <!-- WRAPPER COLLAGE -->
+    <div
+      class="relative w-full max-w-3xl bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden z-10"
+    >
+      <!-- HEADER -->
+      <div class="px-6 py-4 bg-indigo-600 text-white text-center">
+        <h1 class="text-lg md:text-xl font-bold">Kolase Foto Dengan Mudah</h1>
+        <p class="text-indigo-100 text-xs md:text-sm">
+          Upload • Paste • Maks 4 Foto
+        </p>
+      </div>
+
+      <!-- TOOLS -->
+      <div
+        class="px-4 py-3 flex flex-wrap gap-3 justify-center bg-white border-b"
+      >
+        <input type="file" id="fileInput" accept="image/*" multiple hidden />
+        <button
+          onclick="fileInput.click()"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow flex items-center gap-1"
+        >
+          📤 Upload
+        </button>
+        <button
+          onclick="clearAll()"
+          class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg shadow flex items-center gap-1"
+        >
+          🔄 Reset
+        </button>
+        <div class="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-lg">
+          <span class="text-xs font-bold rounded-lg">Jarak</span>
+          <input
+            type="range"
+            id="gapRange"
+            min="0"
+            max="30"
+            value="1"
+            class="accent-indigo-600"
+          />
+        </div>
+      </div>
+
+      <!-- CANVAS -->
+      <div class="px-4 py-4 flex flex-col items-center bg-slate-50">
+        <div
+          class="border-2 border-dashed border-slate-300 rounded-2xl p-3 bg-white w-full max-w-[700px]"
+        >
+          <div id="collage-container"></div>
+          <p
+            id="placeholder-text"
+            class="text-center text-slate-700 text-sm mt-4 font-bold"
+          >
+            CONTROL + V ATAU KLIK UPLOAD
+          </p>
+        </div>
+
+        <!-- ACTIONS -->
+        <div class="mt-4 flex flex-wrap justify-center gap-3">
+          <button
+            onclick="downloadCollage('jpg')"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow flex items-center gap-1"
+          >
+            🖼️ DOWNLOAD JPG
+          </button>
+          <button
+            onclick="downloadCollage('png')"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg shadow flex items-center gap-1"
+          >
+            🖼️ DOWNLOAD PNG
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const container = document.getElementById("collage-container");
+      const fileInput = document.getElementById("fileInput");
+      const gapRange = document.getElementById("gapRange");
+      const placeholder = document.getElementById("placeholder-text");
+      const toast = document.getElementById("toast");
+      const toastText = document.getElementById("toastText");
+      const particlesDiv = document.getElementById("particles");
+
+      let photoCount = 0;
+      const MAX_PHOTO = 4;
+      const REFRESH_DELAY = 2000;
+
+      /* CREATE PARTICLES */
+      for (let i = 0; i < 30; i++) {
+        const p = document.createElement("div");
+        p.className = "particle";
+        const size = Math.random() * 6 + 2 + "px";
+        p.style.width = size;
+        p.style.height = size;
+        p.style.top = Math.random() * 100 + "%";
+        p.style.left = Math.random() * 100 + "%";
+        p.style.animationDuration = 5 + Math.random() * 10 + "s";
+        particlesDiv.appendChild(p);
+      }
+
+      /* TOAST */
+      function showToast(text, type = "success") {
+        const iconMap = {
+          success: "✅",
+          error: "❌",
+          info: "ℹ️",
+          warning: "⚠️",
+        };
+
+        const colorMap = {
+          success: "bg-green-500 text-white",
+          error: "bg-red-500 text-white",
+          info: "bg-blue-500 text-white",
+          warning: "bg-yellow-400 text-black",
+        };
+
+        toastText.textContent = text;
+        toastIcon.textContent = iconMap[type] || "ℹ️";
+        toast.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-xl opacity-0 -translate-y-3 flex items-center gap-2 ${colorMap[type]}`;
+
+        toast.classList.remove("hidden");
+        setTimeout(() => {
+          toast.classList.remove("opacity-0", "-translate-y-3");
+        }, 10);
+        setTimeout(() => {
+          toast.classList.add("opacity-0", "-translate-y-3");
+        }, 2500);
+        setTimeout(() => {
+          toast.classList.add("hidden");
+        }, 3000);
+      }
+
+      /* GAP CONTROL */
+      gapRange.addEventListener("input", (e) => {
+        container.style.gap = e.target.value + "px";
+      });
+
+      /* UPLOAD */
+      fileInput.addEventListener("change", (e) => {
+        [...e.target.files].forEach((file) => {
+          if (photoCount < MAX_PHOTO) addPhoto(URL.createObjectURL(file));
+        });
+      });
+
+      /* PASTE */
+      window.addEventListener("paste", (e) => {
+        [...e.clipboardData.items].forEach((item) => {
+          if (item.type.includes("image") && photoCount < MAX_PHOTO) {
+            addPhoto(URL.createObjectURL(item.getAsFile()));
+          }
+        });
+      });
+
+      /* ADD PHOTO */
+      function addPhoto(src) {
+        const frame = document.createElement("div");
+        frame.className =
+          "bg-slate-100 rounded-xl shadow flex items-center justify-center overflow-hidden";
+        const img = document.createElement("img");
+        img.src = src;
+        img.className = "w-full h-full object-contain"; // tidak terpotong
+        frame.appendChild(img);
+        container.appendChild(frame);
+        photoCount++;
+        placeholder.style.display = "none";
+      }
+
+      /* RESET */
+      function clearAll() {
+        container.innerHTML = "";
+        photoCount = 0;
+        placeholder.style.display = "block";
+        showToast("Website di refresh");
+      }
+
+      /* DOWNLOAD */
+      async function downloadCollage(format) {
+        if (photoCount === 0) {
+          showToast("Masukkan foto dulu", "error");
+          return;
+        }
+
+        const canvas = await html2canvas(container, {
+          scale: 5,
+          backgroundColor: "#fff",
+        });
+        const ext = format === "jpg" ? "jpeg" : "png";
+        const blob = await new Promise((resolve) =>
+          canvas.toBlob(resolve, `image/${ext}`, 1.0),
+        );
+        const fileName = `kolase-hd-${Date.now()}.${format}`;
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(
+          navigator.userAgent,
+        );
+
+        if (isMobile) {
+          // Mobile: langsung download
+          const link = document.createElement("a");
+          link.download = fileName;
+          link.href = URL.createObjectURL(blob);
+          link.click();
+          showToast(
+            "Download Berhasil! Foto disimpan di folder default handphone",
+            "success",
+          );
+          setTimeout(() => location.reload(), REFRESH_DELAY);
+        } else if ("showSaveFilePicker" in window) {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: fileName,
+              types: [
+                {
+                  description: `${format.toUpperCase()} Image`,
+                  accept: { [`image/${ext}`]: [`.${format}`] },
+                },
+              ],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+
+            // Dapatkan path file (hanya nama folder, browser tidak beri akses full path karena alasan security)
+            // Jadi kita bisa tulis teks generik contoh:
+            showToast(
+              `Download Berhasil! Foto disimpan di folder yang dipilih`,
+              "success",
+            );
+
+            setTimeout(() => location.reload(), REFRESH_DELAY);
+          } catch {
+            showToast("Download dibatalkan", "warning");
+          }
+        } else {
+          // fallback
+          const link = document.createElement("a");
+          link.download = fileName;
+          link.href = URL.createObjectURL(blob);
+          link.click();
+          showToast(
+            "Download Berhasil! Foto disimpan di folder default browser",
+            "success",
+          );
+          setTimeout(() => location.reload(), REFRESH_DELAY);
+        }
+      }
+    </script>
+  </body>
+</html>
